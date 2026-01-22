@@ -14,7 +14,15 @@ import {
   Collapse,
   Popconfirm,
 } from "antd";
-import { QrcodeOutlined, LogoutOutlined } from "@ant-design/icons";
+import {
+  QrcodeOutlined,
+  LogoutOutlined,
+  CheckCircleTwoTone,
+  DollarTwoTone,
+  CloseCircleTwoTone,
+  PlusCircleFilled,
+  MinusCircleFilled,
+} from "@ant-design/icons";
 import { formatPrice } from "../utils/formatPrice";
 
 const { Header, Content } = Layout;
@@ -152,9 +160,13 @@ export default function WaiterDashboard() {
                     onClick={() => addItem(item)}
                     style={{ padding: isMobile ? "6px 4px" : undefined }}>
                     <Text style={{ fontSize: isMobile ? 13 : 15 }}>
-                      {item.name}{" "}
+                      {item.name}
                       <span style={{ color: item.available ? "green" : "red" }}>
-                        {item.available ? "✅" : "❌"}
+                        {item.available ? (
+                          <CheckCircleTwoTone className="ml-3" />
+                        ) : (
+                          <CloseCircleTwoTone className="ml-3" />
+                        )}
                       </span>
                     </Text>
                     <br />
@@ -175,10 +187,10 @@ export default function WaiterDashboard() {
                 <List.Item
                   actions={[
                     <Button size={isMobile ? "small" : "middle"} onClick={() => changeQty(item.id, -1)}>
-                      -
+                      {<MinusCircleFilled />}
                     </Button>,
                     <Button size={isMobile ? "small" : "middle"} onClick={() => changeQty(item.id, 1)}>
-                      +
+                      {<PlusCircleFilled />}
                     </Button>,
                   ]}>
                   <Text style={{ fontSize: isMobile ? 13 : 14 }}>
@@ -246,7 +258,7 @@ export default function WaiterDashboard() {
                       cancelText="Yo'q"
                       onConfirm={() => requestBill(o.id)}>
                       <Button danger block>
-                        💰 Stolni yopish
+                        {<DollarTwoTone />} Stolni yopish
                       </Button>
                     </Popconfirm>
                   </Space>
