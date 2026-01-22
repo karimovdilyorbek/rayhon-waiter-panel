@@ -21,7 +21,6 @@ const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
 
-/* ===== MENU ===== */
 const menuItems = [
   { id: 1, name: "Osh", price: 15000, available: true },
   { id: 2, name: "Kabob", price: 18000, available: false },
@@ -32,11 +31,12 @@ const menuItems = [
 ];
 
 export default function WaiterDashboard() {
+  const isMobile = window.innerWidth <= 420;
+
   const [tableNumber, setTableNumber] = useState("");
   const [activeTable, setActiveTable] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [orders, setOrders] = useState([]);
-
   const [inProgressVisibleId, setInProgressVisibleId] = useState(null);
 
   const calcTotal = (items) => items.reduce((sum, i) => sum + i.price * i.qty, 0);
@@ -96,26 +96,36 @@ export default function WaiterDashboard() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Header style={{ background: "#14532d", display: "flex", justifyContent: "space-between" }}>
+      <Header
+        style={{
+          background: "#14532d",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: isMobile ? "0 12px" : "0 24px",
+        }}>
         <Title level={4} style={{ color: "#fff", margin: 0 }}>
-          Rayhon – Ofitsiant
+          Rayhon — Ofitsiant
         </Title>
-        <Button danger icon={<LogoutOutlined />}>
+        <Button danger size={isMobile ? "small" : "middle"} icon={<LogoutOutlined />}>
           Chiqish
         </Button>
       </Header>
 
-      <Content style={{ padding: 12 }}>
+      <Content style={{ padding: isMobile ? 8 : 12 }}>
+        {/* ===== TABLE SELECT ===== */}
         <Card title="Stol tanlash" style={{ marginBottom: 12 }}>
-          <Space>
+          <Space wrap>
             <Input
               placeholder="Stol raqami"
               value={tableNumber}
               onChange={(e) => setTableNumber(e.target.value)}
+              style={{ width: isMobile ? 120 : 160 }}
             />
             <Button
               type="primary"
               icon={<QrcodeOutlined />}
+              size={isMobile ? "small" : "middle"}
               onClick={() => {
                 if (!tableNumber) return;
                 if (isTableBusy(tableNumber)) {
@@ -130,16 +140,27 @@ export default function WaiterDashboard() {
           </Space>
         </Card>
 
+        {/* ===== ORDER FORM ===== */}
         {activeTable && (
           <Card title={`Stol ${activeTable} uchun zakaz`} style={{ marginBottom: 12 }}>
             <Row gutter={[8, 8]}>
               {menuItems.map((item) => (
-                <Col xs={12} key={item.id}>
-                  <Button block disabled={!item.available} onClick={() => addItem(item)}>
-                    {item.name}{" "}
-                    <Text style={{ color: item.available ? "green" : "red" }}>{item.available ? "✅" : "❌"}</Text>
+                <Col xs={24} sm={12} key={item.id}>
+                  <Button
+                    block
+                    disabled={!item.available}
+                    onClick={() => addItem(item)}
+                    style={{ padding: isMobile ? "6px 4px" : undefined }}>
+                    <Text style={{ fontSize: isMobile ? 13 : 15 }}>
+                      {item.name}{" "}
+                      <span style={{ color: item.available ? "green" : "red" }}>
+                        {item.available ? "✅" : "❌"}
+                      </span>
+                    </Text>
                     <br />
-                    <Text type="secondary">{formatPrice(item.price)}</Text>
+                    <Text type="secondary" style={{ fontSize: isMobile ? 11 : 13 }}>
+                      {formatPrice(item.price)}
+                    </Text>
                   </Button>
                 </Col>
               ))}
@@ -153,53 +174,50 @@ export default function WaiterDashboard() {
               renderItem={(item) => (
                 <List.Item
                   actions={[
-                    <Button size="small" onClick={() => changeQty(item.id, -1)}>
+                    <Button size={isMobile ? "small" : "middle"} onClick={() => changeQty(item.id, -1)}>
                       -
                     </Button>,
-                    <Button size="small" onClick={() => changeQty(item.id, 1)}>
+                    <Button size={isMobile ? "small" : "middle"} onClick={() => changeQty(item.id, 1)}>
                       +
                     </Button>,
                   ]}>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <Text>
-                      {item.qty}x {item.name}
-                    </Text>
-                  </div>
-                  <Text strong>{formatPrice(item.qty * item.price)}</Text>
+                  <Text style={{ fontSize: isMobile ? 13 : 14 }}>
+                    {item.qty}x {item.name}
+                  </Text>
+                  <Text strong style={{ fontSize: isMobile ? 13 : 14 }}>
+                    {formatPrice(item.qty * item.price)}
+                  </Text>
                 </List.Item>
               )}
             />
 
             <Divider />
-            <Title level={5}>Jami: {formatPrice(calcTotal(orderItems))}</Title>
+            <Title level={5} style={{ fontSize: isMobile ? 14 : 16 }}>
+              Jami: {formatPrice(calcTotal(orderItems))}
+            </Title>
 
             <Space style={{ width: "100%" }}>
-              <Button danger block onClick={cancelOrder}>
+              <Button danger block size={isMobile ? "small" : "middle"} onClick={cancelOrder}>
                 Bekor qilish
               </Button>
-              <Button type="primary" block onClick={submitOrder}>
+              <Button type="primary" block size={isMobile ? "small" : "middle"} onClick={submitOrder}>
                 Zakaz yuborish
               </Button>
             </Space>
           </Card>
         )}
 
+        {/* ===== ACTIVE & IN_PROGRESS ===== */}
         <Row gutter={[12, 12]}>
+          {/* ACTIVE */}
           <Col xs={24} md={12}>
             <Title level={4}>Faol stollar</Title>
-
             <Collapse accordion>
               {activeOrders.map((o) => (
                 <Panel
                   key={o.id}
                   header={
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        width: "100%",
-                      }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <Text strong>Stol {o.table}</Text>
                       <Badge status="processing" text={formatPrice(o.total)} />
                     </div>
@@ -207,13 +225,8 @@ export default function WaiterDashboard() {
                   <List
                     size="small"
                     dataSource={o.items}
-                    style={{ marginBottom: 12 }}
                     renderItem={(i) => (
-                      <List.Item
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                        }}>
+                      <List.Item style={{ display: "flex", justifyContent: "space-between" }}>
                         <Text>
                           {i.qty}x {i.name}
                         </Text>
@@ -222,8 +235,8 @@ export default function WaiterDashboard() {
                     )}
                   />
 
-                  <Space direction="vertical" style={{ width: "100%" }} size={8}>
-                    <Button type="default" block onClick={() => addMoreOrder(o)}>
+                  <Space direction="vertical" style={{ width: "100%" }} size={6}>
+                    <Button block onClick={() => addMoreOrder(o)}>
                       Yana zakaz berish
                     </Button>
 
@@ -233,7 +246,7 @@ export default function WaiterDashboard() {
                       cancelText="Yo'q"
                       onConfirm={() => requestBill(o.id)}>
                       <Button danger block>
-                        💰 Stolni Yopish
+                        💰 Stolni yopish
                       </Button>
                     </Popconfirm>
                   </Space>
@@ -242,6 +255,7 @@ export default function WaiterDashboard() {
             </Collapse>
           </Col>
 
+          {/* IN PROGRESS */}
           <Col xs={24} md={12}>
             <Title level={4}>Jarayonda</Title>
             {inProgressOrders.map((o) => (
@@ -257,14 +271,8 @@ export default function WaiterDashboard() {
                   <List
                     size="small"
                     dataSource={o.items}
-                    style={{ marginTop: 8 }}
                     renderItem={(i) => (
-                      <List.Item
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}>
+                      <List.Item style={{ display: "flex", justifyContent: "space-between" }}>
                         <Text>
                           {i.qty}x {i.name}
                         </Text>
