@@ -1,5 +1,19 @@
-import React, { useState } from "react";
-import { Layout, Card, Button, Input, List, Badge, Space, Typography, Divider, Row, Col, Collapse } from "antd";
+import { useState } from "react";
+import {
+  Layout,
+  Card,
+  Button,
+  Input,
+  List,
+  Badge,
+  Space,
+  Typography,
+  Divider,
+  Row,
+  Col,
+  Collapse,
+  Popconfirm,
+} from "antd";
 import { QrcodeOutlined, LogoutOutlined } from "@ant-design/icons";
 import { formatPrice } from "../utils/formatPrice";
 
@@ -9,12 +23,12 @@ const { Panel } = Collapse;
 
 /* ===== MENU ===== */
 const menuItems = [
-  { id: 1, name: "Osh", price: 15000 },
-  { id: 2, name: "Kabob", price: 18000 },
-  { id: 3, name: "Shurva", price: 12000 },
-  { id: 4, name: "Manti", price: 14000 },
-  { id: 5, name: "Somsa", price: 8000 },
-  { id: 6, name: "Choy", price: 3000 },
+  { id: 1, name: "Osh", price: 15000, available: true },
+  { id: 2, name: "Kabob", price: 18000, available: false },
+  { id: 3, name: "Shurva", price: 12000, available: true },
+  { id: 4, name: "Manti", price: 14000, available: true },
+  { id: 5, name: "Somsa", price: 8000, available: false },
+  { id: 6, name: "Choy", price: 3000, available: true },
 ];
 
 export default function WaiterDashboard() {
@@ -23,13 +37,15 @@ export default function WaiterDashboard() {
   const [orderItems, setOrderItems] = useState([]);
   const [orders, setOrders] = useState([]);
 
-  /* ===== HELPERS ===== */
+  const [inProgressVisibleId, setInProgressVisibleId] = useState(null);
+
+  const calcTotal = (items) => items.reduce((sum, i) => sum + i.price * i.qty, 0);
+
   const isTableBusy = (table) => orders.some((o) => o.table === table && o.status === "ACTIVE");
 
-  const calcTotal = (items) => items.reduce((s, i) => s + i.price * i.qty, 0);
-
-  /* ===== ORDER FORM ===== */
   const addItem = (item) => {
+    if (!item.available) return;
+
     const exist = orderItems.find((i) => i.id === item.id);
     if (exist) {
       setOrderItems(orderItems.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i)));
@@ -40,11 +56,6 @@ export default function WaiterDashboard() {
 
   const changeQty = (id, diff) => {
     setOrderItems(orderItems.map((i) => (i.id === id ? { ...i, qty: i.qty + diff } : i)).filter((i) => i.qty > 0));
-  };
-
-  const cancelOrder = () => {
-    setOrderItems([]);
-    setActiveTable(null);
   };
 
   const submitOrder = () => {
@@ -65,7 +76,17 @@ export default function WaiterDashboard() {
     setActiveTable(null);
   };
 
-  /* ===== TABLE ACTIONS ===== */
+  const cancelOrder = () => {
+    setOrderItems([]);
+    setActiveTable(null);
+  };
+
+  const addMoreOrder = (order) => {
+    setActiveTable(order.table);
+    setOrderItems(order.items);
+    setOrders(orders.filter((o) => o.id !== order.id));
+  };
+
   const requestBill = (id) => {
     setOrders(orders.map((o) => (o.id === id ? { ...o, status: "IN_PROGRESS" } : o)));
   };
@@ -75,26 +96,18 @@ export default function WaiterDashboard() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      {/* ===== HEADER ===== */}
-      <Header
-        style={{
-          background: "#14532d",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}>
+      <Header style={{ background: "#14532d", display: "flex", justifyContent: "space-between" }}>
         <Title level={4} style={{ color: "#fff", margin: 0 }}>
           Rayhon – Ofitsiant
         </Title>
-        <Button icon={<LogoutOutlined />} danger>
+        <Button danger icon={<LogoutOutlined />}>
           Chiqish
         </Button>
       </Header>
 
       <Content style={{ padding: 12 }}>
-        {/* ===== TABLE SELECT ===== */}
         <Card title="Stol tanlash" style={{ marginBottom: 12 }}>
-          <Space style={{ width: "100%" }}>
+          <Space>
             <Input
               placeholder="Stol raqami"
               value={tableNumber}
@@ -106,7 +119,7 @@ export default function WaiterDashboard() {
               onClick={() => {
                 if (!tableNumber) return;
                 if (isTableBusy(tableNumber)) {
-                  alert(`Stol ${tableNumber} hozir band`);
+                  alert("Bu stol band");
                   return;
                 }
                 setActiveTable(tableNumber);
@@ -117,14 +130,14 @@ export default function WaiterDashboard() {
           </Space>
         </Card>
 
-        {/* ===== ORDER FORM ===== */}
         {activeTable && (
           <Card title={`Stol ${activeTable} uchun zakaz`} style={{ marginBottom: 12 }}>
             <Row gutter={[8, 8]}>
               {menuItems.map((item) => (
-                <Col xs={12} sm={12} key={item.id}>
-                  <Button block onClick={() => addItem(item)}>
-                    {item.name}
+                <Col xs={12} key={item.id}>
+                  <Button block disabled={!item.available} onClick={() => addItem(item)}>
+                    {item.name}{" "}
+                    <Text style={{ color: item.available ? "green" : "red" }}>{item.available ? "✅" : "❌"}</Text>
                     <br />
                     <Text type="secondary">{formatPrice(item.price)}</Text>
                   </Button>
@@ -136,16 +149,22 @@ export default function WaiterDashboard() {
 
             <List
               dataSource={orderItems}
-              locale={{ emptyText: "Zakaz yo‘q" }}
+              locale={{ emptyText: "Zakaz yo'q" }}
               renderItem={(item) => (
                 <List.Item
                   actions={[
-                    <Button onClick={() => changeQty(item.id, -1)}>-</Button>,
-                    <Button onClick={() => changeQty(item.id, 1)}>+</Button>,
+                    <Button size="small" onClick={() => changeQty(item.id, -1)}>
+                      -
+                    </Button>,
+                    <Button size="small" onClick={() => changeQty(item.id, 1)}>
+                      +
+                    </Button>,
                   ]}>
-                  <Text>
-                    {item.qty}x {item.name}
-                  </Text>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <Text>
+                      {item.qty}x {item.name}
+                    </Text>
+                  </div>
                   <Text strong>{formatPrice(item.qty * item.price)}</Text>
                 </List.Item>
               )}
@@ -165,11 +184,10 @@ export default function WaiterDashboard() {
           </Card>
         )}
 
-        {/* ===== ACTIVE / IN PROGRESS ===== */}
         <Row gutter={[12, 12]}>
-          {/* ACTIVE */}
           <Col xs={24} md={12}>
             <Title level={4}>Faol stollar</Title>
+
             <Collapse accordion>
               {activeOrders.map((o) => (
                 <Panel
@@ -178,45 +196,83 @@ export default function WaiterDashboard() {
                     <div
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        gap: 6,
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        width: "100%",
                       }}>
                       <Text strong>Stol {o.table}</Text>
                       <Badge status="processing" text={formatPrice(o.total)} />
-                      <Button
-                        danger
-                        size="small"
-                        block
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          requestBill(o.id);
-                        }}>
-                        Hisob so‘rash
-                      </Button>
                     </div>
                   }>
                   <List
                     size="small"
                     dataSource={o.items}
+                    style={{ marginBottom: 12 }}
                     renderItem={(i) => (
-                      <List.Item>
-                        {i.qty}x {i.name}
+                      <List.Item
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}>
+                        <Text>
+                          {i.qty}x {i.name}
+                        </Text>
+                        <Text strong>{formatPrice(i.qty * i.price)}</Text>
                       </List.Item>
                     )}
                   />
+
+                  <Space direction="vertical" style={{ width: "100%" }} size={8}>
+                    <Button type="default" block onClick={() => addMoreOrder(o)}>
+                      Yana zakaz berish
+                    </Button>
+
+                    <Popconfirm
+                      title="Hisobni yopishga ishonchingiz komilmi?"
+                      okText="Ha"
+                      cancelText="Yo'q"
+                      onConfirm={() => requestBill(o.id)}>
+                      <Button danger block>
+                        💰 Stolni Yopish
+                      </Button>
+                    </Popconfirm>
+                  </Space>
                 </Panel>
               ))}
             </Collapse>
           </Col>
 
-          {/* IN PROGRESS */}
           <Col xs={24} md={12}>
             <Title level={4}>Jarayonda</Title>
             {inProgressOrders.map((o) => (
-              <Card key={o.id} style={{ marginBottom: 8 }}>
+              <Card
+                key={o.id}
+                style={{ marginBottom: 8 }}
+                onClick={() => setInProgressVisibleId(inProgressVisibleId === o.id ? null : o.id)}>
                 <Text strong>Stol {o.table}</Text>
                 <br />
                 <Text type="secondary">Kassirda — {formatPrice(o.total)}</Text>
+
+                {inProgressVisibleId === o.id && (
+                  <List
+                    size="small"
+                    dataSource={o.items}
+                    style={{ marginTop: 8 }}
+                    renderItem={(i) => (
+                      <List.Item
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}>
+                        <Text>
+                          {i.qty}x {i.name}
+                        </Text>
+                        <Text strong>{formatPrice(i.qty * i.price)}</Text>
+                      </List.Item>
+                    )}
+                  />
+                )}
               </Card>
             ))}
           </Col>
