@@ -14,7 +14,15 @@ import {
   Popconfirm,
   Empty,
 } from "antd";
-import { LogoutOutlined, DollarTwoTone, PlusCircleFilled, MinusCircleFilled } from "@ant-design/icons";
+import {
+  LogoutOutlined,
+  DollarTwoTone,
+  PlusCircleFilled,
+  MinusCircleFilled,
+  CheckCircleTwoTone,
+  CloseCircleTwoTone,
+  QrcodeOutlined,
+} from "@ant-design/icons";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { formatPrice } from "../utils/formatPrice";
 
@@ -24,33 +32,34 @@ const { Panel } = Collapse;
 
 const menuItems = [
   { id: 1, name: "Osh", price: 15000, available: true },
-  { id: 2, name: "Kabob", price: 18000, available: true },
+  { id: 2, name: "Kabob", price: 18000, available: false },
   { id: 3, name: "Shurva", price: 12000, available: true },
   { id: 4, name: "Manti", price: 14000, available: true },
-  { id: 5, name: "Somsa", price: 8000, available: true },
+  { id: 5, name: "Somsa", price: 8000, available: false },
   { id: 6, name: "Choy", price: 3000, available: true },
 ];
 
 export default function WaiterDashboard() {
-  const isMobile = window.innerWidth <= 420;
+  const isMobile = window.innerWidth <= 800;
 
-  const [activeTab, setActiveTab] = useState("scan"); // scan | service
   const [activeTable, setActiveTable] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [scanStarted, setScanStarted] = useState(false);
+
   const scannerRef = useRef(null);
 
-  /* ================= HELPERS ================= */
+  /* ===== HELPERS ===== */
   const calcTotal = (items) => items.reduce((sum, i) => sum + i.price * i.qty, 0);
 
   const isTableBusy = (table) => orders.some((o) => o.table === table && o.status === "ACTIVE");
 
-  /* ================= QR SCANNER ================= */
+  /* ===== QR SCANNER ===== */
   useEffect(() => {
-    if (activeTab !== "scan") return;
+    if (!scanStarted) return;
 
     if (!scannerRef.current) {
-      const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 }, false);
+      const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 220 }, false);
 
       scanner.render(
         (decodedText) => {
@@ -63,7 +72,7 @@ export default function WaiterDashboard() {
 
           setActiveTable(tableNum);
           setOrderItems([]);
-          setActiveTab("service");
+          setScanStarted(false);
         },
         () => {},
       );
@@ -75,10 +84,12 @@ export default function WaiterDashboard() {
       scannerRef.current?.clear();
       scannerRef.current = null;
     };
-  }, [activeTab, orders]);
+  }, [scanStarted, orders]);
 
-  /* ================= ORDER LOGIC ================= */
+  /* ===== ORDER LOGIC ===== */
   const addItem = (item) => {
+    if (!item.available) return;
+
     const exist = orderItems.find((i) => i.id === item.id);
     if (exist) {
       setOrderItems(orderItems.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i)));
@@ -122,7 +133,7 @@ export default function WaiterDashboard() {
   const activeOrders = orders.filter((o) => o.status === "ACTIVE");
   const inProgressOrders = orders.filter((o) => o.status === "IN_PROGRESS");
 
-  /* ================= UI ================= */
+  /* ===== UI ===== */
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Header
@@ -131,7 +142,6 @@ export default function WaiterDashboard() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: isMobile ? "0 12px" : "0 24px",
         }}>
         <Title level={4} style={{ color: "#fff", margin: 0 }}>
           Rayhon — Ofitsiant
@@ -142,34 +152,40 @@ export default function WaiterDashboard() {
       </Header>
 
       <Content style={{ padding: 12 }}>
-        {/* TABS */}
-        <Space style={{ marginBottom: 12 }}>
-          <Button type={activeTab === "scan" ? "primary" : "default"} onClick={() => setActiveTab("scan")}>
-            Scan
-          </Button>
-          <Button type={activeTab === "service" ? "primary" : "default"} onClick={() => setActiveTab("service")}>
-            Xizmat
-          </Button>
-        </Space>
+        <Row gutter={[12, 12]}>
+          {/* ===== SCAN ===== */}
+          <Col xs={24} md={12}>
+            <Card title="Skanerlash">
+              {!scanStarted ? (
+                <Button
+                  type="primary"
+                  icon={<QrcodeOutlined />}
+                  size="large"
+                  block
+                  onClick={() => setScanStarted(true)}>
+                  Skanerlashni boshlash
+                </Button>
+              ) : (
+                <div id="qr-reader" />
+              )}
+            </Card>
+          </Col>
 
-        {/* SCAN PANEL */}
-        {activeTab === "scan" && (
-          <Card title="QR skanerlash">
-            <div id="qr-reader" />
-            <Text type="secondary">Stol QR kodini skaner qiling</Text>
-          </Card>
-        )}
-
-        {/* SERVICE PANEL */}
-        {activeTab === "service" && (
-          <>
+          {/* ===== SERVICE ===== */}
+          <Col xs={24} md={12}>
             {activeTable && (
               <Card title={`Stol ${activeTable} uchun zakaz`} style={{ marginBottom: 12 }}>
                 <Row gutter={[8, 8]}>
                   {menuItems.map((item) => (
-                    <Col xs={24} sm={12} key={item.id}>
-                      <Button block onClick={() => addItem(item)}>
-                        {item.name} <br />
+                    <Col xs={12} key={item.id}>
+                      <Button block disabled={!item.available} onClick={() => addItem(item)}>
+                        {item.name}{" "}
+                        {item.available ? (
+                          <CheckCircleTwoTone twoToneColor="#52c41a" />
+                        ) : (
+                          <CloseCircleTwoTone twoToneColor="#ff4d4f" />
+                        )}
+                        <br />
                         <Text type="secondary">{formatPrice(item.price)}</Text>
                       </Button>
                     </Col>
@@ -208,76 +224,46 @@ export default function WaiterDashboard() {
               </Card>
             )}
 
-            <Row gutter={[12, 12]}>
-              {/* FAOL */}
-              <Col xs={24} md={12}>
-                <Title level={4}>Faol stollar</Title>
-                {activeOrders.length === 0 ? (
-                  <Empty description="Band stollar yo‘q" />
-                ) : (
-                  <Collapse accordion>
-                    {activeOrders.map((o) => (
-                      <Panel
-                        key={o.id}
-                        header={
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                            }}>
-                            <Text strong>Stol {o.table}</Text>
-                            <Badge status="processing" text={formatPrice(o.total)} />
-                          </div>
-                        }>
-                        <List
-                          size="small"
-                          dataSource={o.items}
-                          renderItem={(i) => (
-                            <List.Item>
-                              {i.qty}x {i.name}
-                            </List.Item>
-                          )}
-                        />
+            <Title level={5}>Faol stollar</Title>
+            {activeOrders.length === 0 ? (
+              <Empty description="Band stollar yo‘q" />
+            ) : (
+              <Collapse accordion>
+                {activeOrders.map((o) => (
+                  <Panel
+                    key={o.id}
+                    header={
+                      <Space>
+                        <Text strong>Stol {o.table}</Text>
+                        <Badge status="processing" text={formatPrice(o.total)} />
+                      </Space>
+                    }>
+                    <Button block onClick={() => addMoreOrder(o)}>
+                      Yana zakaz
+                    </Button>
 
-                        <Button block onClick={() => addMoreOrder(o)}>
-                          Yana zakaz berish
-                        </Button>
-
-                        <Popconfirm title="Stolni yopasizmi?" onConfirm={() => requestBill(o.id)}>
-                          <Button danger block style={{ marginTop: 6 }}>
-                            <DollarTwoTone /> Stolni yopish
-                          </Button>
-                        </Popconfirm>
-                      </Panel>
-                    ))}
-                  </Collapse>
-                )}
-              </Col>
-
-              {/* JARAYONDA */}
-              <Col xs={24} md={12}>
-                <Title level={4}>Jarayonda</Title>
-                {inProgressOrders.map((o) => (
-                  <Card key={o.id} style={{ marginBottom: 8 }}>
-                    <Text strong>Stol {o.table}</Text>
-                    <br />
-                    <Text type="secondary">Kassirda — {formatPrice(o.total)}</Text>
-                    <Divider />
-                    <List
-                      size="small"
-                      dataSource={o.items}
-                      renderItem={(i) => (
-                        <List.Item>
-                          {i.qty}x {i.name}
-                        </List.Item>
-                      )}
-                    />
-                  </Card>
+                    <Popconfirm title="Stolni yopasizmi?" onConfirm={() => requestBill(o.id)}>
+                      <Button danger block>
+                        <DollarTwoTone /> Stolni yopish
+                      </Button>
+                    </Popconfirm>
+                  </Panel>
                 ))}
-              </Col>
-            </Row>
-          </>
-        )}
+              </Collapse>
+            )}
+
+            <Title level={5} style={{ marginTop: 12 }}>
+              Jarayonda
+            </Title>
+            {inProgressOrders.map((o) => (
+              <Card key={o.id}>
+                <Text strong>Stol {o.table}</Text>
+                <br />
+                <Text type="secondary">Kassirda — {formatPrice(o.total)}</Text>
+              </Card>
+            ))}
+          </Col>
+        </Row>
       </Content>
     </Layout>
   );
