@@ -22,6 +22,7 @@ import {
   CheckCircleTwoTone,
   CloseCircleTwoTone,
   QrcodeOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { formatPrice } from "../utils/formatPrice";
@@ -40,8 +41,6 @@ const menuItems = [
 ];
 
 export default function WaiterDashboard() {
-  const isMobile = window.innerWidth <= 800;
-
   const [activeTable, setActiveTable] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -58,33 +57,34 @@ export default function WaiterDashboard() {
   useEffect(() => {
     if (!scanStarted) return;
 
-    if (!scannerRef.current) {
-      const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 220 }, false);
+    const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 220 }, false);
 
-      scanner.render(
-        (decodedText) => {
-          const tableNum = decodedText.trim();
+    scanner.render(
+      (decodedText) => {
+        const tableNum = decodedText.trim();
 
-          if (isTableBusy(tableNum)) {
-            alert("Bu stol band");
-            return;
-          }
+        if (isTableBusy(tableNum)) {
+          alert("Bu stol band");
+          return;
+        }
 
-          setActiveTable(tableNum);
-          setOrderItems([]);
-          setScanStarted(false);
-        },
-        () => {},
-      );
+        setActiveTable(tableNum);
+        setOrderItems([]);
+        stopScanner();
+      },
+      () => {},
+    );
 
-      scannerRef.current = scanner;
-    }
+    scannerRef.current = scanner;
 
-    return () => {
-      scannerRef.current?.clear();
-      scannerRef.current = null;
-    };
-  }, [scanStarted, orders]);
+    return stopScanner;
+  }, [scanStarted]);
+
+  const stopScanner = () => {
+    scannerRef.current?.clear();
+    scannerRef.current = null;
+    setScanStarted(false);
+  };
 
   /* ===== ORDER LOGIC ===== */
   const addItem = (item) => {
@@ -133,6 +133,26 @@ export default function WaiterDashboard() {
   const activeOrders = orders.filter((o) => o.status === "ACTIVE");
   const inProgressOrders = orders.filter((o) => o.status === "IN_PROGRESS");
 
+  /* ===== ORDER DETAIL UI ===== */
+  const OrderDetail = ({ order }) => (
+    <>
+      <List
+        size="small"
+        dataSource={order.items}
+        renderItem={(item) => (
+          <List.Item>
+            <Text>
+              {item.qty}x {item.name}
+            </Text>
+            <Text strong>{formatPrice(item.qty * item.price)}</Text>
+          </List.Item>
+        )}
+      />
+      <Divider />
+      <Text strong>Jami: {formatPrice(order.total)}</Text>
+    </>
+  );
+
   /* ===== UI ===== */
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -166,7 +186,12 @@ export default function WaiterDashboard() {
                   Skanerlashni boshlash
                 </Button>
               ) : (
-                <div id="qr-reader" />
+                <>
+                  <div id="qr-reader" />
+                  <Button danger block icon={<StopOutlined />} onClick={stopScanner} style={{ marginTop: 8 }}>
+                    Stop scanning
+                  </Button>
+                </>
               )}
             </Card>
           </Col>
@@ -238,10 +263,11 @@ export default function WaiterDashboard() {
                         <Badge status="processing" text={formatPrice(o.total)} />
                       </Space>
                     }>
-                    <Button block onClick={() => addMoreOrder(o)}>
-                      Yana zakaz
+                    <OrderDetail order={o} />
+                    <Divider />
+                    <Button block onClick={() => addMoreOrder(o)} style={{ marginBottom: 8 }}>
+                      Yana zakaz berish
                     </Button>
-
                     <Popconfirm title="Stolni yopasizmi?" onConfirm={() => requestBill(o.id)}>
                       <Button danger block>
                         <DollarTwoTone /> Stolni yopish
@@ -255,13 +281,13 @@ export default function WaiterDashboard() {
             <Title level={5} style={{ marginTop: 12 }}>
               Jarayonda
             </Title>
-            {inProgressOrders.map((o) => (
-              <Card key={o.id}>
-                <Text strong>Stol {o.table}</Text>
-                <br />
-                <Text type="secondary">Kassirda — {formatPrice(o.total)}</Text>
-              </Card>
-            ))}
+            <Collapse>
+              {inProgressOrders.map((o) => (
+                <Panel key={o.id} header={`Stol ${o.table} — Kassirda`}>
+                  <OrderDetail order={o} />
+                </Panel>
+              ))}
+            </Collapse>
           </Col>
         </Row>
       </Content>
